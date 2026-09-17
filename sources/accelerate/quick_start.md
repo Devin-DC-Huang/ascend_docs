@@ -92,10 +92,14 @@ python --version
 Python 3.12.xxx
 ```
 
-检查 torch / torch_npu 是否装好且 NPU 设备可用：
+检查 torch / torch_npu 是否装好且 NPU 设备可用(下面的命令用 Python 执行)：
 
-```shell #test id="check-torch"
-python -c "import torch, torch_npu; print('torch=', torch.__version__); print('torch_npu=', torch_npu.__version__); print('is_available:', torch.npu.is_available()); print('count:', torch.npu.device_count())"
+```python #test id="check-torch"
+import torch, torch_npu
+print('torch=', torch.__version__)
+print('torch_npu=', torch_npu.__version__)
+print('is_available:', torch.npu.is_available())
+print('count:', torch.npu.device_count())
 ```
 
 输出结果如下：
@@ -118,9 +122,15 @@ count: xxx
 
 通过 PyPI 镜像直接装最新 release 的二进制 wheel：
 
-```shell #test id="acc-install-binary"
+```shell #test-setup
 uv pip install --index-url https://mirrors.aliyun.com/pypi/simple accelerate
-python -c "import accelerate; print('accelerate', accelerate.__version__)"
+```
+
+验证装上的版本(下面的命令用 Python 执行)：
+
+```python #test id="acc-install-binary"
+import accelerate
+print('accelerate', accelerate.__version__)
 ```
 
 输出结果类似如下：
@@ -149,18 +159,24 @@ echo "${UPSTREAM_REF}"
 ```
 -->
 
-克隆上游仓库并 checkout 到工作流注入的最新 release tag，安装并且验证：
+克隆上游仓库并 checkout 到当前 accelerate 的最新 release tag，安装并且验证：
 
-```shell #test id="acc-install-source" load="upstream_ref>>ref"
+```shell #test-setup load="upstream_ref>>ref"
 git clone --depth 1 --branch <ref> https://github.com/huggingface/accelerate.git
 cd accelerate
 uv pip install -e .
-python -c "import accelerate; print('accelerate', accelerate.__version__)"
+```
+
+验证装上的版本(下面的命令用 Python 执行)：
+
+```python #test id="acc-install-source"
+import accelerate
+print('accelerate', accelerate.__version__)
 ```
 
 ```{admonition} Note
 :class: note
-`<ref>` 是 GitHub workflow 注入的 accelerate 最新 release tag，由前面隐藏的 `#test-setup store="upstream_ref"` 捕获并填到这里。
+`<ref>` 替换为 accelerate 当前的最新 release 版本。
 ```
 
 输出结果类似如下：
@@ -248,7 +264,7 @@ def main():
         # 3 steps are enough to drive loss below 0.5 on this toy task.
         if step == 2:
             break
-    # accelerator.print only emits on the main process, so the #test-result
+    # accelerator.print only emits on the main process, so the print
     # below sees exactly one line regardless of --num_processes.
     accelerator.print(
         f"device={accelerator.device.type} "
@@ -270,7 +286,7 @@ ASCEND_RT_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precis
 
 ```{admonition} Note
 :class: note
-`<path>` 是上面「写最小训练脚本」一节生成的脚本绝对路径（即 `${PWD}/train_npu.py`）。
+`<path>` 在运行时指向当前目录下的 `train_npu.py`(由上面「写最小训练脚本」一节生成)。
 ```
 
 输出结果类似：
@@ -281,10 +297,9 @@ device=npu final_loss=xxx
 
 ### 单卡训练
 
-`Accelerator()` + 完整训练循环（forward + `accelerator.backward` + `optim.step`），验证单卡 NPU 上完整训练链路：
+`Accelerator()` + 完整训练循环（forward + `accelerator.backward` + `optim.step`），验证单卡 NPU 上完整训练链路(下面的命令用 Python 执行)：
 
-```shell #test id="acc-train-single"
-python -c "
+```python #test id="acc-train-single"
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
@@ -309,7 +324,6 @@ for step, (xb, yb) in enumerate(loader):
     if step == 2:
         break
 print(f'device={accelerator.device.type} final_loss={loss.item():.4f}')
-"
 ```
 
 输出结果如下：
@@ -320,14 +334,13 @@ device=npu final_loss=xxx
 
 ### 独立 Accelerator.prepare
 
-`Accelerator()` + `accelerator.prepare(model)` 跑一次 forward，验证 Accelerate 在 NPU 上：
+`Accelerator()` + `accelerator.prepare(model)` 跑一次 forward，验证 Accelerate 在 NPU 上(下面的命令用 Python 执行)：
 
 1. **设备探测**：`Accelerator()` 自动识别 `torch_npu`、拿到 `device='npu:0'`；
 2. **NPU 放置**：`accelerator.prepare(model)` 在非 distributed 上下文只做 `model.to(self.device)`，权重真在 NPU 上分配；
 3. **真 kernel 跑**：`prepared(x)` 在 `npu:0` 上跑一次 1×1 matmul + bias add，NPU kernel 真跑了一次。
 
-```shell #test id="acc-prepare"
-python -c "
+```python #test id="acc-prepare"
 import torch
 from torch import nn
 from accelerate import Accelerator
@@ -335,12 +348,10 @@ from accelerate import Accelerator
 accelerator = Accelerator()
 model = nn.Linear(1, 1)
 prepared = accelerator.prepare(model)
-# prepare moves the model to the device, NOT your inputs —
-# data tensors must be placed explicitly.
 x = torch.tensor([[0.5]], device=accelerator.device)
 y = prepared(x)
 print(f'device={y.device.type}')
-print(f'shape={list(y.shape)}')"
+print(f'shape={list(y.shape)}')
 ```
 
 输出结果如下：
@@ -362,7 +373,7 @@ ASCEND_RT_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precis
 
 ```{admonition} Note
 :class: note
-`<path>` 是上面「写最小训练脚本」一节生成的脚本绝对路径（即 `${PWD}/train_npu.py`）。
+`<path>` 在运行时指向当前目录下的 `train_npu.py`(由上面「写最小训练脚本」一节生成)。
 ```
 
 输出结果如下：
@@ -386,7 +397,7 @@ accelerator = Accelerator()
 x = torch.tensor([1, 2, 3], device=accelerator.device)
 (gathered,) = accelerator.gather_for_metrics((x,))
 # accelerator.print only emits on the main process — without this guard
-# the #test-result below would see two copies of each line.
+# the print below would see two copies of each line.
 accelerator.print(f'world={accelerator.num_processes}')
 accelerator.print(f'device={gathered.device.type}')
 accelerator.print(f'gathered={gathered.tolist()}')
@@ -402,7 +413,7 @@ ASCEND_RT_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 <path>
 
 ```{admonition} Note
 :class: note
-`<path>` 是 `echo "${PWD}/gather_npu.py"` 的输出。
+`<path>` 在运行时指向当前目录下的 `gather_npu.py`(由上一段 Python 脚本生成)。
 ```
 
 输出结果如下：
@@ -419,8 +430,9 @@ gathered=[1, 2, 3, 1, 2, 3]
 
 ### init_empty_weights
 
-```shell #test id="acc-empty-weights"
-python -c "
+用 `init_empty_weights` 在 `meta` device 上建一个 1 层 Llama 空骨架,然后打印参数总数和第一层参数的 device——预期 `device=meta`(meta 占位符,不占 NPU 显存)(下面的命令用 Python 执行):
+
+```python #test id="acc-empty-weights"
 from transformers import LlamaConfig, LlamaForCausalLM
 from accelerate import init_empty_weights
 
@@ -439,7 +451,6 @@ n_params = sum(p.numel() for p in model.state_dict().values())
 first_dev = next(model.parameters()).device
 print(f'empty_model_params={n_params}')
 print(f'device={first_dev}')
-"
 ```
 
 输出结果如下：
@@ -453,10 +464,9 @@ device=meta
 
 ### load_checkpoint_and_dispatch
 
-在 `init_empty_weights` 建好的空骨架上跑 `load_checkpoint_and_dispatch`，验证 Accelerate 在 NPU 上真的把权重分到不同卡——前 10 层放 `npu:0`、后 10 层放 `npu:1`：
+先在本地造一个 toy checkpoint 写到 `/tmp/fake-llama-dispatch`(20 层 Llama 骨架 + 随机权重)作为 fixture,接着下面 dispatch 测试用这个目录。`init_empty_weights` 出来的骨架参数是 meta 占位符,`save_pretrained` 不接受;先用 `to_empty` 把 meta 占位换成真实 CPU 张量,再 `torch.randn` 填随机权重,最后才落盘(下面的命令用 Python 执行):
 
-```shell #test-setup store="dispatch_ckpt"
-python -c "
+```python #test-setup store="dispatch_ckpt"
 import os, torch, gc
 from transformers import LlamaConfig, LlamaForCausalLM
 from accelerate import init_empty_weights
@@ -478,13 +488,11 @@ model.save_pretrained('/tmp/fake-llama-dispatch', safe_serialization=True)
 del model
 gc.collect()
 print('/tmp/fake-llama-dispatch')
-"
 ```
 
-用 `init_empty_weights` 建好的空骨架上跑 `load_checkpoint_and_dispatch`，验证 Accelerate 在 NPU 上真的把权重分到两张卡（前 10 层 npu:0、后 10 层 npu:1）：
+在这个空骨架上跑 `load_checkpoint_and_dispatch`,按 `device_map` 把前 10 层放 `npu:0`、后 10 层放 `npu:1`,验证权重真的跨卡分片,最后再跑一次 forward 看 dispatch hook 能不能跨卡通信(下面的命令用 Python 执行):
 
-```shell #test id="acc-dispatch" load="dispatch_ckpt>>ckpt"
-python -c "
+```python #test id="acc-dispatch" load="dispatch_ckpt>>ckpt"
 import torch
 from transformers import LlamaConfig, LlamaForCausalLM
 from accelerate import init_empty_weights, load_checkpoint_and_dispatch
@@ -520,12 +528,11 @@ print(f'first_layer_device={dev_first}')
 print(f'last_layer_device={dev_last}')
 print(f'out_device={out.device.type}')
 print(f'out_shape={list(out.shape)}')
-"
 ```
 
 ```{admonition} Note
 :class: note
-`<ckpt>` 是上面 toy checkpoint 构建命令输出的目录（即 `/tmp/fake-llama-dispatch`）。
+`<ckpt>` 在运行时指向 `/tmp/fake-llama-dispatch`(由上一段 Python 脚本生成的 toy checkpoint 目录)。
 ```
 
 输出结果如下：
