@@ -1,6 +1,6 @@
-# torchvision
+# Torchvision
 
-在昇腾 NPU 上跑通 [torchvision](https://github.com/pytorch/vision) 的最小链路：安装 `torch` / `torch_npu` / `pillow` / `torchvision`（源码构建 + Stable ABI 兼容补丁），再用 `torchvision.transforms.v2` 在 NPU 上验证 9 段核心用法（基础 / 随机裁剪 / 分类流水线 / 检测 / 多类型 TVTensor / `tv_tensors` 语义 / 嵌套结构透传 / `Dataset` 互操作）。
+在昇腾 NPU 上跑通 [Torchvision](https://github.com/pytorch/vision) 的最小链路：安装 `torch` / `torch_npu` / `pillow` / `torchvision`（源码构建 + Stable ABI 兼容补丁），再用 `torchvision.transforms.v2` 在 NPU 上验证 9 段核心用法（基础 / 随机裁剪 / 分类流水线 / 检测 / 多类型 TVTensor / `tv_tensors` 语义 / 嵌套结构透传 / `Dataset` 互操作）。
 
 `torchvision` 通过 `torch_npu` 的 PrivateUse1 后端在 NPU 上跑通；本文不验证模型侧 NPU 推理（需要 Ascend/vision 的 `torchvision_npu` 算子包，另行迭代）。
 
