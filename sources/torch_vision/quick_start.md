@@ -253,7 +253,7 @@ npu round-trip: in=(2, 3) on cpu, npu=(2, 3) on npu, back=(2, 3) on cpu
 
 ### 单 transform——实例化、调用、看输出
 
-v2 transform 用起来跟普通 `nn.Module` 一样：**实例化一次，可以反复调用**。跑最简单的 `CenterCrop`：
+v2 transform 用起来跟普通 `nn.Module` 一样：**实例化一次，可以反复调用**。跑最简单的 `CenterCrop`(下面的命令用 Python 执行)：
 
 ```python #test id="v2-basics"
 import numpy as np
@@ -283,7 +283,7 @@ out: type=Image device=npu shape=(3, 224, 224)
 
 ### 随机裁剪——验证 NPU 输出跟 CPU 一致
 
-`RandomCrop` 默认 input 必须 ≥ output，否则要 pad。这里 256 ≥ 224，offset 恒为 `(0, 0)`——**这条路径是确定的**，只在 NPU 上跑一次验形状：
+`RandomCrop` 默认 input 必须 ≥ output，否则要 pad。这里 256 ≥ 224，offset 恒为 `(0, 0)`——**这条路径是确定的**，只在 NPU 上跑一次验形状(下面的命令用 Python 执行)：
 
 ```python #test id="v2-randomcrop"
 import numpy as np
@@ -317,6 +317,8 @@ out: type=Image device=npu shape=(3, 224, 224)
 2. `RandomHorizontalFlip(p=0.5)` — 一半概率水平翻转
 3. `ToDtype(float32, scale=True)` — uint8 → float32，顺便除以 255
 4. `Normalize(mean, std)` — 用 ImageNet 均值 / 方差归一化
+
+(下面的命令用 Python 执行)：
 
 ```python #test id="v2-classification"
 import numpy as np
@@ -359,7 +361,7 @@ out finite: True
 
 ### 检测任务——把标注框跟图像一起 transform
 
-分类只处理图像；**检测任务**还要同时处理标注框（bounding box）。v2 用 `BoundingBoxes` TVTensor 表达标注框——形状 `(N, 4)`，带 `format`（坐标格式：`XYXY` / `CXCYWH` 等）跟 `canvas_size`（图像尺寸）两个 metadata：
+分类只处理图像；**检测任务**还要同时处理标注框（bounding box）。v2 用 `BoundingBoxes` TVTensor 表达标注框——形状 `(N, 4)`，带 `format`（坐标格式：`XYXY` / `CXCYWH` 等）跟 `canvas_size`（图像尺寸）两个 metadata(下面的命令用 Python 执行)：
 
 ```python #test id="v2-detection"
 import numpy as np
@@ -408,7 +410,7 @@ out_boxes min/max: xxx
 
 ### 多类型输入——一次 transform 处理多种数据
 
-v2 不只能 transform image——一次调用可以塞 5 种 TVTensor（Image + BoundingBoxes + Mask + Video + KeyPoints），transform 内部按**类型**分别 dispatch：
+v2 不只能 transform image——一次调用可以塞 5 种 TVTensor（Image + BoundingBoxes + Mask + Video + KeyPoints），transform 内部按**类型**分别 dispatch(下面的命令用 Python 执行)：
 
 ```python #test id="v2-vbmk"
 import numpy as np
@@ -460,7 +462,7 @@ keypoints: type=KeyPoints device=cpu shape=(3, 2)
 
 - `isinstance(img_dp, torch.Tensor)` 永远为 `True`
 - 所有原生 tensor 接口（`.sum()` / `.to(...)` / `torch.cat(...)` / `tensor.shape`）都能用
-- **transforms 就是按这个子类类型做 dispatch 的**——这正是为什么 `BoundingBoxes` 能跟 `Image` 一起 transform
+- **transforms 就是按这个子类类型做 dispatch 的**——这正是为什么 `BoundingBoxes` 能跟 `Image` 一起 transform(下面的命令用 Python 执行)：
 
 ```python #test id="v2-tvtensors"
 import torch
@@ -485,7 +487,7 @@ img_npu.dtype = torch.uint8, img_npu.shape = torch.Size([3, 256, 256]), img_npu.
 
 ### transform 不挑剔输入——任意嵌套结构都能传
 
-`transforms` 只看 TVTensor **类型**做 dispatch，外来的 str / int / tuple / dict 原样穿透。所以你可以传任意嵌套结构——单 image、`(img, target)` 元组、dict、嵌套 dict——返回**同结构**：
+`transforms` 只看 TVTensor **类型**做 dispatch，外来的 str / int / tuple / dict 原样穿透。所以你可以传任意嵌套结构——单 image、`(img, target)` 元组、dict、嵌套 dict——返回**同结构**(下面的命令用 Python 执行)：
 
 ```python #test id="v2-input-structure"
 import numpy as np
@@ -526,7 +528,7 @@ out_target['this_is_ignored'] = ('arbitrary', {'structure': '!'})
 
 ### 跟自定义 Dataset 配合——`__getitem__` 返 TVTensor 即可
 
-你只要保证自定义 Dataset 的 `__getitem__` 返回**已经是 TVTensor**的对象，v2 transform 就能直接用：
+你只要保证自定义 Dataset 的 `__getitem__` 返回**已经是 TVTensor**的对象，v2 transform 就能直接用(下面的命令用 Python 执行)：
 
 ```python #test id="v2-dataset-interop"
 import numpy as np
