@@ -37,7 +37,6 @@ swr.cn-south-1.myhuaweicloud.com/ascendhub/cann:9.1.0-910b-ubuntu22.04-py3.12
 | CANN | 9.1.0 |
 | torch | 2.12.0+cpu |
 | torch_npu | 2.12.0 |
-| torchvision | 最新 release（源码构建 + Stable ABI 补丁细节见「安装 torchvision」） |
 | pillow | `>=10.0`（`torchvision.transforms.functional.to_pil_image` 等的运行时依赖） |
 
 ## 前置安装
