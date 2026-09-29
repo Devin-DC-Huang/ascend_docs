@@ -2,7 +2,7 @@
 
 在昇腾 NPU 上跑通 [Torchvision](https://github.com/pytorch/vision) 的最小链路：安装 `torch` / `torch_npu` / `pillow` / `torchvision`（源码构建 + Stable ABI 兼容补丁），再用 `torchvision.transforms.v2` 在 NPU 上验证 9 段核心用法（基础 / 随机裁剪 / 分类流水线 / 检测 / 多类型 TVTensor / `tv_tensors` 语义 / 嵌套结构透传 / `Dataset` 互操作）。
 
-`torchvision` 通过 `torch_npu` 的 PrivateUse1 后端在 NPU 上跑通；本文不验证模型侧 NPU 推理（需要 Ascend/vision 的 `torchvision_npu` 算子包，另行迭代）。
+`torchvision` 通过 `torch_npu` 在 NPU 上跑通。
 
 ## 前置条件
 
@@ -37,7 +37,7 @@ swr.cn-south-1.myhuaweicloud.com/ascendhub/cann:9.1.0-910b-ubuntu22.04-py3.12
 | CANN | 9.1.0 |
 | torch | 2.12.0+cpu |
 | torch_npu | 2.12.0 |
-| torchvision | 最新 release（**必须源码构建** `FORCE_CUDA=0`——torchvision ≥0.23 停止发布 CPU-only wheel，PyPI 上的 linux wheel 都链 `libcudart.so`，跟 torch_npu 不兼容；CPU-only 构建产出的 `_C.so` 只链 `libc10_cpu` / `libtorch_cpu`，跟 torch_npu 完全兼容；v0.29.0 起迁移 Stable ABI，还需打本仓 `patches/torch-vision/torch-2.12-stable-api-permute.patch`，见「安装 torchvision」） |
+| torchvision | 最新 release（源码构建 + Stable ABI 补丁细节见「安装 torchvision」） |
 | pillow | `>=10.0`（`torchvision.transforms.functional.to_pil_image` 等的运行时依赖） |
 
 ## 前置安装
