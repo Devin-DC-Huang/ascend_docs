@@ -207,6 +207,8 @@ xxx 表示实际安装的 torchvision 版本号。
 - `tv_tensors` 跟 `torchvision.io` 的链路通
 - 把 numpy 数组装进 `tv_tensors.Image`——这是后面所有 transform 的入口数据类型
 
+(下面的命令用 Python 执行)：
+
 ```python #test id="v2-setup"
 import numpy as np
 import torch
