@@ -1,0 +1,113 @@
+# torch.vision quick start guard - project thin trigger.
+#
+# Calls the common engine .github/workflows/quick-start-template.yml;
+# this file only declares what varies per project: schedule,
+# concurrency, runner, container image + options, upstream repo,
+# monitored doc, and the test entry command. The guard loop, cache
+# I/O, state relay and publishing all live in the engine.
+#
+# Cache keys (quick-start-monitor-state-torch.vision_*) and artifact names
+# are derived from project=torch.vision, not the workflow name. The dot
+# in the project name is allowed by both GitHub cache keys (treated
+# as a literal character) and artifact names (alphanumeric + dot +
+# hyphen + underscore per GitHub's artifact name rules).
+#
+# Upstream: github.com/pytorch/vision. The doc builds torchvision from
+# source (the source build section clones pytorch/vision at the latest
+# release tag, applies a Stable ABI compat patch to fix
+# `torch::stable::permute` -> `transpose` chain for torch 2.12 wheels,
+# and runs `FORCE_CUDA=0 uv pip install -e .`). pytorch/vision ships
+# GitHub Releases so the engine's default release_source=releases
+# works without a tags override.
+#
+# No device mounts: torch_npu auto-registers with the CANN base image
+# and torchvision transforms run on synthetic PIL images generated in
+# process — no `modelscope snapshot_download` and no host driver
+# bind-mounts needed. End-to-end `torchvision.models.resnet50().to('npu:0')`
+# is documented as out-of-scope (model-side NPU inference needs the
+# Ascend/vision fork's `torchvision_npu` patch package, which is a
+# separate effort).
+
+name: torch.vision-quick-start
+
+concurrency:
+  # format() is load-bearing: a '||' between 'manual-' and
+  # github.run_id would short-circuit on the truthy literal and
+  # every dispatch would share one 'manual-' group.
+  group: ${{ github.event_name == 'schedule' && 'torch.vision-quick-start-schedule' || format('manual-{0}', github.run_id) }}
+  # cancel-in-progress: false because (1) a schedule run cancelled
+  # mid-way loses its outcome writeback - the outcome is what makes
+  # the retry mechanism work, and the 'if: always()' guard isn't
+  # enough when the container is being torn down; (2) dispatch runs
+  # already live in unique groups so there's nothing to cancel.
+  cancel-in-progress: false
+
+on:
+  schedule:
+    # Run every 6 hours at minute 30 (00:30, 06:30, 12:30, 18:30) -
+    # offset from the other every-6h guards (timm :00, torchtune :10,
+    # tensordict :05, specforge :40, lm-eval :15) and the every-3h
+    # guards (axolotl/tgi/whisper_cpp :15, diffusers :20, peft :30,
+    # accelerate/llama_cpp :45, speculators :25, mooncake/llm_compressor :50)
+    # so the guards don't contend for NPU runners. Cadence is loose
+    # enough for an upstream that releases a few times a year (pytorch/vision
+    # ships roughly one torchvision release per quarter), but tight
+    # enough that doc fixes propagate within a day.
+    - cron: '30 */6 * * *'
+  workflow_dispatch:
+  # PR trigger: docs/tests changes get a guard run. paths filter avoids burning
+  # the self-hosted NPU runner on unrelated PRs. `pull_request` (not
+  # `pull_request_target`): contents: read is enough, no write-token risk.
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sources/torch_vision/**'
+      - 'tests/torch_vision/**'
+      - 'patches/torch-vision/**'
+
+permissions:
+  contents: read
+
+jobs:
+  # Job ID rules: alphanumeric + '-' + '_' only, no dots. The workflow
+  # name (above) and concurrency group string can keep the dotted form
+  # (those are just string values, not identifiers), but the jobs:<id>
+  # key is parsed as an identifier by GitHub Actions and rejects the
+  # dot with the F8 lint error '<id>' is invalid.
+  torch-vision-quick-start:
+    uses: ./.github/workflows/quick-start-template.yml
+    with:
+      # Namespaces cache keys (quick-start-monitor-state-torch.vision_*),
+      # artifacts (torch.vision-quick-start-<run_id>) and the test working
+      # dir (tests/torch_vision in the repo root; engine sets cwd to repo root).
+      project: torch.vision
+      # Self-hosted single-card NPU runner for the test job only; the
+      # engine pins the cache I/O jobs (restore-cache /
+      # publish-and-persist) to GitHub-hosted ubuntu-latest.
+      test_runner: '["linux-aarch64-a2-1"]'
+      # CANN 9.1.0 + Python 3.12 base image; the doc's
+      # `## 前置安装` section only verifies versions + installs torch /
+      # torch_npu / pillow, then `## 安装 torchvision` builds torchvision
+      # from source (with the local Stable ABI compat patch).
+      image: swr.cn-south-1.myhuaweicloud.com/ascendhub/cann:9.1.0-910b-ubuntu22.04-py3.12
+      container_options: ''
+      # 60 min covers uv pip install torch / torch_npu from Aliyun
+      # pytorch-wheels + Huawei Cloud ascend dual-source (~30 min cold
+      # for the torch_npu wheel on a busy runner) + pillow +
+      # torchvision source build (~5 min: clone + apply patch + pip
+      # install -e . with FORCE_CUDA=0) + 9 v2 transforms smoke tests.
+      timeout_minutes: 60
+      upstream_repo: pytorch/vision
+      # Doc URL points to the upstream Ascend/docs repo. {0} is filled by the
+      # engine: PR head SHA on PR runs, 'main' otherwise. Same-repo PRs (head
+      # SHA exists on Ascend/docs) test the PR-version of the doc; fork PRs
+      # (head SHA on a fork) 404 on doc fetch - accepted, since the content
+      # lands on Ascend/docs post-merge.
+      doc_url: 'https://raw.githubusercontent.com/Ascend/docs/{0}/sources/torch_vision/quick_start.md'
+      doc_path: https://github.com/Ascend/docs/blob/main/sources/torch_vision/quick_start.md
+      # cwd is the repo root inside the `workflows` checkout (matches
+      # engine template's `working-directory: workflows`); env contract
+      # (MONITORED_DOC_URL / UPSTREAM_REF / NPU_READY) is injected by the
+      # engine. All project env prep and installs live in the test
+      # subclass's prepare_environment hook.
+      test_command: python -m unittest tests.torch_vision.test_quick_start_ascend -v 2>&1
