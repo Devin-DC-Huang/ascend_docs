@@ -96,9 +96,6 @@ uv pip install -f https://mirrors.aliyun.com/pytorch-wheels/cpu torch==2.12.0
 uv pip install --extra-index-url https://mirrors.aliyun.com/pypi/simple torch_npu==2.12.0
 ```
 
-```{admonition} Note
-:class: note
-torchvision v0.29.0（2026-09 发布）把 C 扩展迁移到 PyTorch Stable C ABI，这条链踩过两级坑：**第一级**，torch 2.9.0 wheel 的 Stable ABI 头是早期不完整快照，缺 `torch/csrc/stable/c/shim.h` 等核心头，v0.29.0 的 `box_iou_rotated.cpp` 直接编不过——所以把 torch / torch_npu 升到 2.12.0（wheel 完整 ship 61 个 Stable ABI 头；同款 CANN 9.1.0 镜像 / 同源 wheel / NPU 上 torchtitan Llama 3 debug_model + 8B 训练已跑通；torch_npu 2.12.0 在 aliyun pypi/simple 上有，跟 torch 2.12.0 是华为官方兼容矩阵对齐的同一 minor）。**第二级**，头文件齐了还不够：v0.29.0 的构建目标钉在 torch 2.14（`setup.py` 里 `TORCH_TARGET_VERSION=0x020e000000000000`），`deform_conv2d_kernel.cpp` 用了 `torch::stable::permute`——该函数 **2.14 才进 stable API**（2.12 / 2.13 wheel 的 `stable/ops.h` 函数面里都没有），而 torch_npu 目前最高只有 2.12.0 正式版，所以 NPU 上不可能用 torch 2.14——只能打本仓 `patches/torch-vision/torch-2.12-stable-api-permute.patch` 把两处 `permute` 换成等价 transpose 链。等 torch_npu 2.14 上架 aliyun 后即可去掉补丁并解绑 torch 版本（`transpose` 在 2.14 里仍存在，补丁留着也不影响编译）。
 ```
 
 检查 torch / torch_npu 是否装好且 NPU 设备可用(下面的命令用 Python 执行)：
